@@ -1,0 +1,334 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -224,
+        -208
+      ],
+      "id": "57beba5e-9d2d-4a09-83d3-41ed2f69b538",
+      "name": "Schedule Trigger",
+      "alwaysOutputData": true,
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=55.7558&longitude=37.6173&hourly=precipitation&timezone=Europe/Moscow",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": " hourly",
+              "value": "= Precipitation (rain + showers + snow)"
+            },
+            {
+              "name": "latitude",
+              "value": "52.45"
+            },
+            {
+              "name": "longitude",
+              "value": "37.37"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -32,
+        -208
+      ],
+      "id": "dffab2bc-748f-4297-a808-dae447fd0109",
+      "name": "Сбор информации по осадкам",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b213585a-b1ba-4bd6-931c-89eab9960248",
+              "name": "precipitation_mm",
+              "value": "={{ $json.hourly_units.precipitation }}",
+              "type": "string"
+            },
+            {
+              "id": "d453f2f5-7cb4-4408-8150-beb049b3eccf",
+              "name": "has_rain",
+              "value": "={{ $json.hourly.precipitation[0] > 0.1 ? 'rain' : 'no_rain' }}",
+              "type": "string"
+            },
+            {
+              "id": "5a20cf71-702b-4ed4-b1cd-5260cf5f9966",
+              "name": "rain_status",
+              "value": "={{   $json.hourly.precipitation[0] < 0.1 ? \"no_rain\" :   $json.hourly.precipitation[0] <= 0.5 ? \"light_rain\" :   $json.hourly.precipitation[0] <= 0.8 ? \"moderate_rain\" :   \"heavy_rain\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        -192
+      ],
+      "id": "3d988cb8-b9bd-4335-9ac7-3f300e7c3eda",
+      "name": "Обработка данных"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d06fba0d-16a0-4198-b723-0fe56bf5f0f2",
+              "leftValue": "={{ $json.has_rain }}",
+              "rightValue": "rain",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        -208
+      ],
+      "id": "51b95614-e7b9-4990-be3c-e25dc3892def",
+      "name": "Цикл если"
+    },
+    {
+      "parameters": {
+        "chunkSize": 2000,
+        "options": {
+          "summarizationMethodAndPrompts": {
+            "values": {
+              "combineMapPrompt": "Проанализируй данные об осадках в Москве:\n\nТекущие осадки: {{ $json.precipitation_mm }} мм\nКатегория: {{ $json.rain_category }}\nПрогноз на 6 часов: {{ $json.forecast_6h.join(', ') }} мм\nСтиль: напиши официальный стилем прогноз и добавь список активностей, которые можно сделать в текущий день, исходя из количества осадков, пиши на русском языке",
+              "prompt": "Проанализируй данные об осадках в Москве:\n\nТекущие осадки: {{ $json.precipitation_mm }} мм\nКатегория: {{ $json.rain_category }}\nПрогноз на 6 часов: {{ $json.forecast_6h.join(', ') }} мм\nСтиль: напиши официальный стилем прогноз и добавь список активностей, которые можно сделать в текущий день, исходя из количества осадков, пиши на русском языке\n"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainSummarization",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        -464
+      ],
+      "id": "823d829a-58b2-4020-b9b2-7b1a1e94d727",
+      "name": "Путь, если есть осадки"
+    },
+    {
+      "parameters": {
+        "chunkSize": 2000,
+        "options": {
+          "summarizationMethodAndPrompts": {
+            "values": {
+              "combineMapPrompt": "отметь, что осадков не ожидается и дай несколько советов, что делать и куда сходить в хорошую погоду",
+              "prompt": "отметь, что осадков не ожидается и дай несколько советов, что делать и куда сходить в хорошую погоду"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainSummarization",
+      "typeVersion": 2.1,
+      "position": [
+        768,
+        -112
+      ],
+      "id": "7a7250df-7e47-4f08-aaf6-2d022d7707c4",
+      "name": "Путь, если нет осадков",
+      "alwaysOutputData": false,
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        768,
+        80
+      ],
+      "id": "c7273cdb-bab2-4bbc-ab42-ec870219e4ba",
+      "name": "Mistral",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "y89a702Xbo1I8F8Q",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        752,
+        -256
+      ],
+      "id": "f39d6fe9-24e9-4520-a244-6b54fcd141a6",
+      "name": "Mistral1",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "y89a702Xbo1I8F8Q",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "=1288342599",
+        "text": "=Привет! Осадков не ожидается.  {{$json.output.text}}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_notification": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1184,
+        -320
+      ],
+      "id": "a3f43fb2-913e-4323-ac05-2667248c12b5",
+      "name": "Сообщение в бот",
+      "webhookId": "27611994-9f71-443d-b76d-a9aaf583ee4b",
+      "credentials": {
+        "telegramApi": {
+          "id": "f2PfIRX96IDNuDQa",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Сбор информации по осадкам": {
+      "main": [
+        [
+          {
+            "node": "Обработка данных",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Обработка данных": {
+      "main": [
+        [
+          {
+            "node": "Цикл если",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Цикл если": {
+      "main": [
+        [
+          {
+            "node": "Путь, если есть осадки",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Путь, если нет осадков",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Путь, если есть осадки": {
+      "main": [
+        [
+          {
+            "node": "Сообщение в бот",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Путь, если нет осадков": {
+      "main": [
+        [
+          {
+            "node": "Сообщение в бот",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Путь, если нет осадков",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Путь, если есть осадки",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "ce028c3a-220d-4cb0-861c-dc6ba1aed230",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ae39e8945d771357764aec84fb2cf45c95c19a07163b2e95fd8282e00e114294"
+  },
+  "id": "X4lb66Kcff6Fzl2wvtZ0e",
+  "tags": []
+}
